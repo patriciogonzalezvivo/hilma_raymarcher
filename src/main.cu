@@ -9,6 +9,7 @@
 #define BLOCK_SIZE 8
 
 #include "lygia/color/palette/hue.cuh"
+#include "lygia/math/operations.cuh"
 
 #include "hilma/types/Image.h"
 #include "hilma/io/png.h"
