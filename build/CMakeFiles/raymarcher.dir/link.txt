@@ -1,0 +1,1 @@
+/usr/bin/c++ -rdynamic CMakeFiles/raymarcher.dir/src/main.cu.o -o raymarcher   -L/usr/local/cuda/targets/x86_64-linux/lib/stubs  -L/usr/local/cuda/targets/x86_64-linux/lib  deps/hilma/src/libhilma.a -lcudadevrt -lcudart_static -lrt -lpthread -ldl 
