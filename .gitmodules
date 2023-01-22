@@ -1,3 +1,6 @@
 [submodule "deps/hilma"]
 	path = deps/hilma
 	url = git@github.com:patriciogonzalezvivo/hilma.git
+[submodule "deps/lygia/include/lygia"]
+	path = deps/lygia/include/lygia
+	url = git@github.com:patriciogonzalezvivo/lygia.git
