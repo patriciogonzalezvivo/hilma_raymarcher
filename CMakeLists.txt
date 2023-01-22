@@ -12,7 +12,7 @@ include_directories(${CUDA_INCLUDE_DIRS})
 message(STATUS ${CUDA_VERSION})
 message(STATUS ${CUDA_TOOLKIT_ROOT_DIR})
 
-# cuda_add_executable (people_detect src/people_detect.cpp)
+include_directories("${PROJECT_SOURCE_DIR}/deps/")
 
 add_compile_options(-DGLM_FORCE_CXX11 -DGLM_FORCE_SWIZZLE -Wno-psabi -Wno-dev) 
 add_subdirectory(deps)

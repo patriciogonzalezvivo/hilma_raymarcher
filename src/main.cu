@@ -6,8 +6,10 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 // #include "curand_kernel.h"
-#include "cutil_math.h"
 #define BLOCK_SIZE 8
+
+#include "lygia/color/palette/heatmap.cuh"
+#include "lygia/math.cuh"
 
 #include "hilma/types/Image.h"
 #include "hilma/io/png.h"
@@ -24,6 +26,11 @@ __global__ void render(int _width, int _height, float *_pixels) {
 
     color.x = st.x;
     color.y = st.y;
+
+    float3 hue = heatmap(st.x);
+    color.x = hue.x;
+    color.y = hue.y;
+    color.z = hue.z;
 
     // return color
     _pixels[x * 4 + 4 * y * _width + 0] = color.x;
