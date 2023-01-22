@@ -8,8 +8,7 @@
 // #include "curand_kernel.h"
 #define BLOCK_SIZE 8
 
-#include "lygia/color/palette/heatmap.cuh"
-#include "lygia/math.cuh"
+#include "lygia/color/palette/hue.cuh"
 
 #include "hilma/types/Image.h"
 #include "hilma/io/png.h"
@@ -27,10 +26,10 @@ __global__ void render(int _width, int _height, float *_pixels) {
     color.x = st.x;
     color.y = st.y;
 
-    float3 hue = heatmap(st.x);
-    color.x = hue.x;
-    color.y = hue.y;
-    color.z = hue.z;
+    float3 h = hue(st.x);
+    color.x = h.x;
+    color.y = h.y;
+    color.z = h.z;
 
     // return color
     _pixels[x * 4 + 4 * y * _width + 0] = color.x;
