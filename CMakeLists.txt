@@ -14,7 +14,7 @@ message(STATUS ${CUDA_TOOLKIT_ROOT_DIR})
 
 # cuda_add_executable (people_detect src/people_detect.cpp)
 
-add_compile_options(-DGLM_FORCE_CXX11 -DGLM_FORCE_SWIZZLE -Wno-psabi) 
+add_compile_options(-DGLM_FORCE_CXX11 -DGLM_FORCE_SWIZZLE -Wno-psabi -Wno-dev) 
 add_subdirectory(deps)
 
 file(GLOB ROOT_SOURCE 
@@ -30,5 +30,3 @@ add_executable(raymarcher
 # file(COPY   assets/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
 
 target_link_libraries(raymarcher PRIVATE hilma)
-
-
