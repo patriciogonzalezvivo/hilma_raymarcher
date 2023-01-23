@@ -25,7 +25,6 @@
 #include "lygia/sdf/planeSDF.cuh"
 #include "lygia/sdf/opUnion.cuh"
 #include "lygia/color/palette/hue.cuh"
-#include "lygia/lighting/camera.cuh"
 
 #define RAYMARCH_MAP_TYPE float4
 #define RAYMARCH_SAMPLES 64
@@ -39,65 +38,35 @@
 #define RAYMARCH_BACKGROUND ( make_float3(0.7f, 0.9f, 1.0f) + ray.y * 0.8f )
 // #define RAYMARCH_MAP_MATERIAL_TYPE float3
 
+#include "lygia/lighting/camera.cuh"
+#include "lygia/lighting/raymarch/cast.cuh"
+#include "lygia/lighting/raymarch/normal.cuh"
+#include "lygia/lighting/raymarch/ao.cuh"
+#include "lygia/lighting/raymarch/softShadow.cuh"
+
 __device__ float checkBoard(float2 _uv, float2 _scale) {
     _uv = floor(fract(_uv * _scale) * 2.0);
     return min(1.0, _uv.x + _uv.y) - (_uv.x * _uv.y);
 }
 
-__device__ float4 raymarchMap(const float3& pos ) {
+__device__ float4 raymarchMap(const float3& pos) {
     float4 res = make_float4(1.0f);
 
     float check = checkBoard( make_float2(pos.x, pos.z), make_float2(1.0f));
     res = opUnion( res, make_float4( make_float3( 0.5f + check * 0.5f), planeSDF(pos) ) );
-    res = opUnion( res, make_float4( 1.0f, 1.0f, 1.0f, sphereSDF(    pos - make_float3( 0.0f, 0.60f, 0.0f), 0.5f ) ) );
+    res = opUnion( res, make_float4( 1.0f, 1.0f, 1.0f, sphereSDF( pos - make_float3( 0.0f, 0.60f, 0.0f), 0.5f ) ) );
         
     return res;
 }
 
-__device__ float4 raymarchCast(const float3& ro, const float3& rd) {
-    float tmin = 1.0;
-    float tmax = 20.0;
-    
-    float t = tmin;
-    float4 m = make_float4(-1.0);
-    for ( int i = 0; i < RAYMARCH_SAMPLES; i++ ) {
-        float precis = 0.00001*t;
-        RAYMARCH_MAP_TYPE res = RAYMARCH_MAP_FNC( ro + rd * t );
-        if ( res.w < precis || t > tmax ) 
-            break;
-        t += res.w;
-        m = res;
-    }
-
-    #if defined(RAYMARCH_BACKGROUND) || defined(RAYMARCH_FLOOR)
-    if ( t > tmax ) 
-        m = make_float4(-1.0);
-    #endif
-
-    m.w = t;
-    return m;
-}
-
-__device__ float3 raymarchNormal(const float3& pos, float e) {
-   const float2 offset = make_float2(1.0f, -1.0f);
-   float3 offset_xyy = make_float3(offset.x, offset.y, offset.y);
-   float3 offset_yyx = make_float3(offset.y, offset.y, offset.x);
-   float3 offset_yxy = make_float3(offset.y, offset.x, offset.y);
-   float3 offset_xxx = make_float3(offset.x, offset.x, offset.x);
-   return normalize( offset_xyy * RAYMARCH_MAP_FNC( pos + offset_xyy * e ).RAYMARCH_MAP_DISTANCE +
-                     offset_yyx * RAYMARCH_MAP_FNC( pos + offset_yyx * e ).RAYMARCH_MAP_DISTANCE +
-                     offset_yxy * RAYMARCH_MAP_FNC( pos + offset_yxy * e ).RAYMARCH_MAP_DISTANCE +
-                     offset_xxx * RAYMARCH_MAP_FNC( pos + offset_xxx * e ).RAYMARCH_MAP_DISTANCE );
-}
-
-__device__ float3 raymarchMaterial(float3 ray, float3 position, float3 normal, float3 color) {
+__device__ float3 raymarchMaterial(const float3& ray, const float3& position, const float3& normal, const float3& color) {
     float3  env = RAYMARCH_AMBIENT;
 
     if ( sum(color) <= 0.0f ) 
         return RAYMARCH_BACKGROUND;
 
     float3 ref = reflect( ray, normal );
-    float occ = 1.0f;//raymarchAO( position, normal );
+    float occ = raymarchAO( position, normal );
 
     #if defined(LIGHT_DIRECTION)
     float3  lig = normalize( LIGHT_DIRECTION );
@@ -112,8 +81,8 @@ __device__ float3 raymarchMaterial(float3 ray, float3 position, float3 normal, f
     float dom = smoothstep( -0.1f, 0.1f, ref.y );
     float fre = pow( saturate(1.0+dot(normal,ray) ), 2.0f );
     
-    // dif *= raymarchSoftShadow( position, lig, 0.02, 2.5 );
-    // dom *= raymarchSoftShadow( position, ref, 0.02, 2.5 );
+    dif *= raymarchSoftShadow( position, lig, 0.02f, 2.5f );
+    dom *= raymarchSoftShadow( position, ref, 0.02f, 2.5f );
 
     float3 light = make_float3(0.0f);
     light += 1.30f * dif * LIGHT_COLOR;
@@ -125,9 +94,6 @@ __device__ float3 raymarchMaterial(float3 ray, float3 position, float3 normal, f
     return color * light;
 }
 
-__device__ float3 raymarchNormal(const float3& pos) {
-    return raymarchNormal(pos, 0.5773f * 0.0005f);
-}
 
 __global__ void render(int _width, int _height, float *_pixels, Camera _cam) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -151,8 +117,8 @@ __global__ void render(int _width, int _height, float *_pixels, Camera _cam) {
     float3 nor = raymarchNormal( pos );
 
     float3 albedo = make_float3( res.x, res.y, res.z );
-    // float3 color = raymarchMaterial(ray_direction, pos, nor, albedo);
-    float3 color = nor;
+    float3 color = raymarchMaterial(ray_direction, pos, nor, albedo);
+    // float3 color = nor;
 
     // return color
     _pixels[x * 4 + 4 * y * _width + 0] = color.x;
@@ -171,7 +137,7 @@ int main(int argc, char **argv) {
 
     Camera cam;
 	// cam.pos = make_float3(-1.0f, 1.5f, -1.0f);
-	cam.pos = make_float3(0.0f, 1.0f, -0.6f);
+	cam.pos = make_float3(0.0f, 1.0f, -1.6f);
 
 	cam.dir = normalize( make_float3(0.0f, 0.0f, 0.6f) - cam.pos);
 	cam.side = normalize(cross(cam.dir, make_float3(0.0f, 1.0f, 0.0f)));
